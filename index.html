@@ -35,11 +35,22 @@
         <div class="col">
           <label class="label" for="monthSelect">Hónap</label>
           <select id="monthSelect" class="select"></select>
-        </div>
         <div class="col sum">
-          <div class="label">Összeg kW</div>
-          <div id="sumValue" class="sumValue">0</div>
-        </div>
+  <div class="label">Összeg kW</div>
+  <div id="sumValue" class="sumValue">0</div>
+</div>
+
+<div class="col sum">
+  <div class="label">Forint</div>
+  <div id="forintValue" class="sumValue">0</div>
+</div>
+
+<div class="col right">
+  <button id="btnMultiplier" class="btn btn-secondary">
+    Szorzó: <span id="multiplierValue">1</span>
+  </button>
+</div>
+
         <div class="col right">
           <div class="label">Tételek</div>
           <div id="countValue" class="muted">0</div>

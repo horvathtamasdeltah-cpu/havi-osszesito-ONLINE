@@ -2,11 +2,18 @@ import { firebaseConfig, fixedClientId } from "./config.js";
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, getDocs, query, orderBy,
-  deleteDoc, enableIndexedDbPersistence, onSnapshot
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  deleteDoc,
+  enableIndexedDbPersistence,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-function $(id){ return document.getElementById(id); }
+function $(id) { return document.getElementById(id); }
 
 function parseNumber(s) {
   const normalized = String(s).trim().replace(",", ".");
@@ -18,13 +25,17 @@ function parseNumber(s) {
 function nowISO() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
-  const ts = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  const ym = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+  const ts =
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  const ym = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
   return { ts, ym, epoch: d.getTime() };
 }
 
 function getClientId() {
-  if (fixedClientId && typeof fixedClientId === "string") return fixedClientId;
+  if (fixedClientId && typeof fixedClientId === "string" && fixedClientId.trim()) {
+    return fixedClientId.trim();
+  }
   const key = "havi_osszesito_client_id";
   let id = localStorage.getItem(key);
   if (!id) {
@@ -41,18 +52,21 @@ function uniqueMonths(records) {
 }
 
 function monthSum(records, ym) {
-  return records.filter(r => r.ym === ym).reduce((a, r) => a + Number(r.value), 0);
+  return records
+    .filter(r => r.ym === ym)
+    .reduce((a, r) => a + Number(r.value), 0);
 }
 
 function toCSV(records) {
   const lines = ["timestamp,value"];
-  records.slice().sort((a,b) => a.epoch - b.epoch).forEach(r => {
-    lines.push(`${r.ts},${r.value}`);
-  });
+  records
+    .slice()
+    .sort((a, b) => a.epoch - b.epoch)
+    .forEach(r => lines.push(`${r.ts},${r.value}`));
   return lines.join("\n") + "\n";
 }
 
-function downloadText(filename, text, mime="text/csv") {
+function downloadText(filename, text, mime = "text/csv") {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -66,7 +80,8 @@ function downloadText(filename, text, mime="text/csv") {
 
 function setNetBadge(isOnline) {
   const b = $("netBadge");
-  b.classList.remove("online","offline");
+  if (!b) return;
+  b.classList.remove("online", "offline");
   b.classList.add(isOnline ? "online" : "offline");
   b.textContent = isOnline ? "● online" : "● offline";
 }
@@ -75,6 +90,7 @@ const clientId = getClientId();
 
 let db;
 let state = { records: [], month: null };
+let unsubscribe = null;
 
 function render() {
   const records = state.records;
@@ -94,7 +110,10 @@ function render() {
   }
   sel.value = state.month;
 
-  const filtered = records.filter(r => r.ym === state.month).slice().sort((a,b) => a.epoch - b.epoch);
+  const filtered = records
+    .filter(r => r.ym === state.month)
+    .slice()
+    .sort((a, b) => a.epoch - b.epoch);
 
   $("sumValue").textContent = monthSum(records, state.month).toLocaleString("hu-HU");
   $("countValue").textContent = String(filtered.length);
@@ -104,65 +123,80 @@ function render() {
   filtered.forEach(r => {
     const div = document.createElement("div");
     div.className = "item";
-    div.innerHTML = `<div>${r.ts}</div><div class="right">${Number(r.value).toLocaleString("hu-HU")}</div>`;
+    div.innerHTML =
+      `<div>${r.ts}</div>` +
+      `<div class="right">${Number(r.value).toLocaleString("hu-HU")}</div>`;
     list.appendChild(div);
   });
 }
 
 function recordsCollection() {
+  // "Privát" útvonal belépés nélkül: users/{clientId}/records
   return collection(db, "users", clientId, "records");
 }
 
-async function loadAll() {
+function startLiveSync() {
   const q = query(recordsCollection(), orderBy("epoch", "asc"));
-  const snap = await getDocs(q);
-  const recs = [];
-  snap.forEach(d => recs.push({ id: d.id, ...d.data() }));
-  state.records = recs;
-  if (!state.month) state.month = nowISO().ym;
-  render();
+  if (unsubscribe) unsubscribe();
+  unsubscribe = onSnapshot(
+    q,
+    (snap) => {
+      const recs = [];
+      snap.forEach(d => recs.push({ id: d.id, ...d.data() }));
+      state.records = recs;
+      if (!state.month) state.month = nowISO().ym;
+      render();
+    },
+    (err) => {
+      // ha valamiért nem megy a realtime, legalább jelezzünk
+      console.error("Firestore realtime error:", err);
+    }
+  );
 }
 
 async function addValue(value) {
   const { ts, ym, epoch } = nowISO();
   await addDoc(recordsCollection(), { ts, ym, epoch, value });
-  await loadAll();
+  // Nem kell manuális reload: onSnapshot frissít
 }
 
 async function deleteAll() {
   const snap = await getDocs(recordsCollection());
   await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
-  state.month = nowISO().ym;
-  await loadAll();
 }
 
 async function deleteMonth(ym) {
   const snap = await getDocs(recordsCollection());
   const docs = snap.docs.filter(d => d.data()?.ym === ym);
   await Promise.all(docs.map(d => deleteDoc(d.ref)));
-  state.month = nowISO().ym;
-  await loadAll();
 }
 
 async function main() {
+  // service worker
   if ("serviceWorker" in navigator) {
     try { await navigator.serviceWorker.register("./sw.js"); } catch {}
   }
 
+  // firebase init
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
 
+  // offline persistence (best-effort)
   try { await enableIndexedDbPersistence(db); } catch {}
 
+  // net badge
   setNetBadge(navigator.onLine);
   window.addEventListener("online", () => setNetBadge(true));
   window.addEventListener("offline", () => setNetBadge(false));
 
-  await loadAll();
+  // REALTIME SYNC
+  startLiveSync();
 
+  // UI events
   $("btnAdd").addEventListener("click", async () => {
     const v = parseNumber($("valueInput").value);
     if (v === null) return;
+
     $("btnAdd").disabled = true;
     try {
       await addValue(v);
@@ -183,7 +217,7 @@ async function main() {
   });
 
   $("btnExport").addEventListener("click", async () => {
-    await loadAll();
+    // exporthoz elég a jelenlegi state (realtime naprakész)
     const csv = toCSV(state.records);
     const name = `havi_osszesito_${nowISO().ym}.csv`;
     downloadText(name, csv, "text/csv");
@@ -201,16 +235,21 @@ async function main() {
   $("btnClearAll").addEventListener("click", async () => {
     if (!confirm("Biztosan törölsz MINDENT? (felhőből is)")) return;
     await deleteAll();
+    state.month = nowISO().ym;
+    // onSnapshot frissít
   });
 
   $("btnClearMonth").addEventListener("click", async () => {
     const ym = state.month;
     if (!confirm(`Biztosan törlöd a(z) ${ym} hónapot? (felhőből is)`)) return;
     await deleteMonth(ym);
+    state.month = nowISO().ym;
+    // onSnapshot frissít
   });
 
-  document.addEventListener("visibilitychange", async () => {
-    if (!document.hidden) await loadAll();
+  // amikor visszajössz az appba, újraindítjuk a sync-et (biztonság kedvéért)
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) startLiveSync();
   });
 }
 

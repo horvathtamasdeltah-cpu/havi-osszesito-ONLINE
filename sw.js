@@ -1,4 +1,4 @@
-const CACHE_NAME = "havi-osszesito-online-v4";
+const CACHE_NAME = "havi-osszesito-online-v5";
 const ASSETS = [
   "./",
   "./index.html",

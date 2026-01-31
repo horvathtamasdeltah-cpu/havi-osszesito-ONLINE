@@ -14,4 +14,4 @@ export const firebaseConfig = {
 
 // Opcionális: ha szeretnéd kézzel beállítani az eszköz-ID-t (másik eszközön ugyanazt használni),
 // akkor add meg itt (különben automatikusan generáljuk és localStorage-ban mentjük).
-export const fixedClientId = 09109a7a-463d-4cb2-9a44-056dc180a855;
+export const fixedClientId = "09109a7a-463d-4cb2-9a44-056dc180a855";

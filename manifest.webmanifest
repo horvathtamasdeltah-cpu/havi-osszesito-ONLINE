@@ -1,6 +1,6 @@
 {
-  "name": "Havi összesítő",
-  "short_name": "Összesítő",
+  "name": "Havi összesítő online",
+  "short_name": "Összesítő Online",
   "start_url": "./havi-osszesito-ONLINE/index.html",
   "scope": "./havi-osszesito-ONLINE/",
   "display": "standalone",

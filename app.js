@@ -3,7 +3,7 @@ import { firebaseConfig, fixedClientId } from "./config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getFirestore, collection, addDoc, getDocs, query, orderBy,
-  deleteDoc, enableIndexedDbPersistence
+  deleteDoc, enableIndexedDbPersistence, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 function $(id){ return document.getElementById(id); }

@@ -111,5 +111,11 @@ $("monthSelect").onchange = e => {
 $("btnMultiplier").onclick = async () => {
   const v = parseNumber(prompt("Szorzó értéke:", state.multiplier));
   if (v === null) return;
-  await setDoc(settingsRef, { multiplier: v });
+
+  // azonnali UI frissítés (akkor is, ha késik a háló)
+  state.multiplier = v;
+  render();
+
+  // mentés a felhőbe (biztos felülírás)
+  await setDoc(settingsRef, { multiplier: v }, { merge: true });
 };
